@@ -1,0 +1,15 @@
+# ---------------------------------------------------------------------------
+# LA APLICACION NO NECESITA NINGUNA DEPENDENCIA.
+# ---------------------------------------------------------------------------
+# `web/` es HTML, CSS y JavaScript sin empaquetador, sin framework y sin
+# librerias de terceros. Para usarla no hace falta Python, ni Node, ni
+# instalar nada: basta con abrir la direccion en el navegador del telefono.
+#
+# Este archivo esta vacio a proposito. Lo que hay aqui debajo son las
+# herramientas para DESARROLLAR y PROBAR el proyecto, que se instalan aparte:
+#
+#     python -m venv .venv
+#     .venv\Scripts\pip install -r requirements-dev.txt
+#     .venv\Scripts\python run_tests.py
+#
+# Python minimo para las herramientas: 3.11 (desarrollado con 3.13).

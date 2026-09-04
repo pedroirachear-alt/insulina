@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Calculadora de bolo de insulina rapida a partir de lo que se va a comer. Funciona sin conexion y los datos no salen del telefono.">
+<meta name="theme-color" content="#0b6b8f">
+<title>Insulina · calculadora de bolo</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Insulina">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header class="cabecera">
+  <span class="marca" aria-hidden="true">U</span>
+  <h1 id="titulo-vista">Calcular la dosis</h1>
+  <span id="aviso-sin-conexion" class="pista oculto">sin conexion</span>
+</header>
+
+<main>
+
+<!-- ==================================================================== -->
+<!-- CALCULAR                                                             -->
+<!-- ==================================================================== -->
+<section class="vista" id="vista-calcular" aria-labelledby="titulo-vista">
+
+  <div class="tarjeta nota n-info oculto" id="falta-configurar">
+    <strong>Antes de empezar hay que configurar los parametros.</strong>
+    <p class="pista">El ratio insulina/hidratos, el factor de sensibilidad y la glucemia
+    objetivo son distintos en cada persona: los pone tu medico. La aplicacion no calcula
+    nada hasta que esten introducidos.</p>
+    <button class="b-principal" data-ir-a="ajustes">Ir a Ajustes</button>
+  </div>
+
+  <!-- 1. Que voy a comer ------------------------------------------------ -->
+  <div class="tarjeta">
+    <h2>1. Que vas a comer</h2>
+    <div class="zona-voz">
+      <textarea id="texto-comida" rows="3" enterkeyhint="done"
+        placeholder="Por ejemplo: un plato de macarrones con tomate, dos rebanadas de pan y una manzana"
+        aria-label="Describe la comida"></textarea>
+      <button class="b-microfono" id="b-microfono" type="button" title="Dictar"
+        aria-label="Dictar la comida con el microfono">&#127908;</button>
+    </div>
+    <p class="pista" id="pista-voz">
+      Si el microfono no va, toca el cuadro de texto y usa el microfono del teclado del telefono.
+    </p>
+    <button class="b-principal" id="b-leer" type="button">Leer la comida</button>
+
+    <div id="mis-comidas-rapido" class="oculto">
+      <h3 style="margin-top:1rem">Comidas guardadas</h3>
+      <div class="chips" id="chips-comidas"></div>
+    </div>
+  </div>
+
+  <!-- 2. Lo que ha entendido -------------------------------------------- -->
+  <div class="tarjeta oculto" id="tarjeta-items">
+    <h2>2. Comprueba la lista</h2>
+    <p class="pista">Cambia los gramos si no cuadra, o quita lo que no sea. Esto es lo que se va a contar.</p>
+    <div id="avisos-lectura"></div>
+    <ul class="lista" id="lista-items"></ul>
+    <div class="total-hc">
+      <span>Hidratos de carbono</span>
+      <span><span id="hc-total">0</span> g</span>
+    </div>
+    <div class="acciones" style="margin-top:.75rem">
+      <button type="button" id="b-anadir-alimento" class="b-pequeno">Añadir un alimento</button>
+      <button type="button" id="b-guardar-comida" class="b-pequeno">Guardar esta comida</button>
+      <button type="button" id="b-vaciar" class="b-pequeno b-peligro">Vaciar</button>
+    </div>
+  </div>
+
+  <!-- 3. Glucemia ------------------------------------------------------- -->
+  <div class="tarjeta">
+    <h2>3. Glucemia de ahora</h2>
+    <div class="fila">
+      <div>
+        <label for="glucosa">mg/dL <span class="pista" style="display:inline">(opcional)</span></label>
+        <input type="number" id="glucosa" inputmode="numeric" min="20" max="800" step="1"
+          placeholder="por ejemplo 160">
+      </div>
+      <div>
+        <label for="momento">Momento</label>
+        <select id="momento">
+          <option value="desayuno">Desayuno</option>
+          <option value="comida">Comida</option>
+          <option value="merienda">Merienda</option>
+          <option value="cena">Cena</option>
+        </select>
+      </div>
+    </div>
+    <p class="pista">Si la dejas en blanco solo se calcula la insulina de la comida, sin correccion.</p>
+    <div class="nota n-aviso oculto" id="aviso-iob"></div>
+  </div>
+
+  <!-- 4. Resultado ------------------------------------------------------ -->
+  <button class="b-principal" id="b-calcular" type="button">Calcular la dosis</button>
+
+  <div id="zona-resultado" style="margin-top:1rem"></div>
+
+  <p class="aviso-legal">
+    Esto es una ayuda al calculo, no una indicacion medica. Los parametros los pone tu
+    equipo de endocrinologia y solo ellos los pueden cambiar. Comprueba siempre el numero
+    antes de pincharte y, ante cualquier duda, sigue la pauta de tu medico.
+  </p>
+</section>
+
+<!-- ==================================================================== -->
+<!-- REGISTRO                                                             -->
+<!-- ==================================================================== -->
+<section class="vista" id="vista-registro" hidden aria-labelledby="titulo-vista">
+  <div class="resumen">
+    <div><span class="n" id="res-hc">0</span><span class="t">g HC hoy</span></div>
+    <div><span class="n" id="res-u">0</span><span class="t">U rapida hoy</span></div>
+    <div><span class="n" id="res-n">0</span><span class="t">pinchazos hoy</span></div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Apuntar aparte</h2>
+    <p class="pista">Para la insulina lenta o una nota, sin pasar por el calculo.</p>
+    <div class="fila">
+      <div>
+        <label for="apunte-u">Unidades</label>
+        <input type="number" id="apunte-u" inputmode="decimal" min="0" max="100" step="0.5">
+      </div>
+      <div>
+        <label for="apunte-tipo">Tipo</label>
+        <select id="apunte-tipo">
+          <option value="lenta">Insulina lenta</option>
+          <option value="rapida">Insulina rapida</option>
+          <option value="nota">Solo una nota</option>
+        </select>
+      </div>
+    </div>
+    <label for="apunte-nota" style="margin-top:.6rem">Nota</label>
+    <input type="text" id="apunte-nota" placeholder="opcional">
+    <button class="b-principal" id="b-apuntar" type="button" style="margin-top:.75rem">Apuntar</button>
+  </div>
+
+  <h3>Historial</h3>
+  <div id="lista-registro"></div>
+
+  <div class="tarjeta" style="margin-top:1rem">
+    <h2>Copia de seguridad</h2>
+    <p class="pista">Todo esta guardado solo en este telefono. Si lo pierdes o borras los datos
+    del navegador, se pierde el registro. Descarga una copia de vez en cuando.</p>
+    <div class="acciones">
+      <button type="button" id="b-exportar">Descargar copia</button>
+      <button type="button" id="b-importar">Cargar una copia</button>
+    </div>
+    <input type="file" id="archivo-importar" accept=".json,application/json" class="sr-solo">
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<!-- ALIMENTOS                                                            -->
+<!-- ==================================================================== -->
+<section class="vista" id="vista-alimentos" hidden aria-labelledby="titulo-vista">
+  <div class="tarjeta">
+    <h2>Buscar un alimento</h2>
+    <input type="text" id="buscar-alimento" placeholder="pan, lentejas, manzana..."
+      autocomplete="off" aria-label="Buscar un alimento">
+    <ul class="resultados" id="resultados-alimentos"></ul>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Añadir o corregir un alimento</h2>
+    <p class="pista">Si un alimento no esta, o el valor no te cuadra con la experiencia,
+    guardalo aqui con tu propio numero. Se usara siempre a partir de entonces.</p>
+
+    <label for="nuevo-nombre">Nombre</label>
+    <input type="text" id="nuevo-nombre" placeholder="Empanada de mi madre">
+
+    <div class="rejilla-2" style="margin-top:.6rem">
+      <div>
+        <label for="nuevo-hc100">HC por 100 g</label>
+        <input type="number" id="nuevo-hc100" inputmode="decimal" min="0" max="100" step="0.1">
+      </div>
+      <div>
+        <label for="nuevo-racion">Una racion (g)</label>
+        <input type="number" id="nuevo-racion" inputmode="numeric" min="1" max="2000" step="1">
+      </div>
+    </div>
+
+    <div class="nota n-info oculto" id="sugerencia-ia" style="margin-top:.75rem"></div>
+    <div class="acciones" style="margin-top:.75rem">
+      <button type="button" class="b-pequeno oculto" id="b-sugerir-ia">Pedir una estimacion a la IA</button>
+    </div>
+    <button class="b-principal" id="b-guardar-alimento" type="button" style="margin-top:.75rem">Guardar el alimento</button>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Mis alimentos</h2>
+    <ul class="lista" id="lista-propios"></ul>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Mis comidas guardadas</h2>
+    <ul class="lista" id="lista-comidas"></ul>
+  </div>
+</section>
+
+<!-- ==================================================================== -->
+<!-- AJUSTES                                                              -->
+<!-- ==================================================================== -->
+<section class="vista" id="vista-ajustes" hidden aria-labelledby="titulo-vista">
+
+  <div class="tarjeta nota n-peligro">
+    <strong>Estos tres numeros los pone tu medico.</strong>
+    <p class="pista">Son distintos en cada persona y cambian con el tiempo. No los ajustes
+    por tu cuenta a partir de lo que leas por internet.</p>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Parametros de tu pauta</h2>
+
+    <label for="a-objetivo">Glucemia objetivo antes de comer (mg/dL)</label>
+    <input type="number" id="a-objetivo" inputmode="numeric" min="70" max="180" step="1">
+
+    <div style="margin-top:.85rem">
+      <label for="a-ratio">Ratio insulina/hidratos: gramos de HC que cubre 1 unidad</label>
+      <input type="number" id="a-ratio" inputmode="decimal" min="1" max="60" step="0.5">
+      <p class="pista">Si tu pauta dice "1 unidad por cada 10 g", pon 10.</p>
+    </div>
+
+    <div style="margin-top:.85rem">
+      <label for="a-fsi">Factor de sensibilidad (FSI): mg/dL que baja 1 unidad</label>
+      <input type="number" id="a-fsi" inputmode="decimal" min="5" max="200" step="1">
+      <p class="pista">Si 1 unidad te baja unos 30 mg/dL, pon 30.</p>
+    </div>
+
+    <label style="margin-top:.85rem; font-weight:600">
+      <input type="checkbox" id="a-por-momento" style="width:auto; min-height:auto; margin-right:.4rem">
+      Uso valores distintos segun la comida
+    </label>
+    <div id="zona-por-momento" class="oculto" style="margin-top:.6rem">
+      <p class="pista">Es habitual necesitar mas insulina en el desayuno. Deja en blanco lo
+      que no cambie: se usara el valor general de arriba.</p>
+      <div class="rejilla-2" id="rejilla-momentos"></div>
+    </div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Tu pluma</h2>
+    <div class="rejilla-2">
+      <div>
+        <label for="a-paso">Escalon</label>
+        <select id="a-paso">
+          <option value="1">unidades enteras</option>
+          <option value="0.5">medias unidades</option>
+        </select>
+      </div>
+      <div>
+        <label for="a-redondeo">Redondeo</label>
+        <select id="a-redondeo">
+          <option value="cercano">al mas cercano</option>
+          <option value="abajo">siempre hacia abajo</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Limites de seguridad</h2>
+    <div class="rejilla-2">
+      <div>
+        <label for="a-max">Maximo por pinchazo (U)</label>
+        <input type="number" id="a-max" inputmode="numeric" min="1" max="100" step="1">
+      </div>
+      <div>
+        <label for="a-hipo">Hipoglucemia por debajo de</label>
+        <input type="number" id="a-hipo" inputmode="numeric" min="40" max="100" step="1">
+      </div>
+    </div>
+    <div class="rejilla-2" style="margin-top:.6rem">
+      <div>
+        <label for="a-alto">Avisar por encima de</label>
+        <input type="number" id="a-alto" inputmode="numeric" min="150" max="500" step="10">
+      </div>
+      <div>
+        <label for="a-duracion">Duracion de la rapida (h)</label>
+        <input type="number" id="a-duracion" inputmode="decimal" min="1" max="8" step="0.5">
+      </div>
+    </div>
+    <label style="margin-top:.85rem; font-weight:600">
+      <input type="checkbox" id="a-corr-negativa" style="width:auto; min-height:auto; margin-right:.4rem">
+      Restar insulina cuando la glucemia esta por debajo del objetivo
+    </label>
+    <label style="margin-top:.6rem; font-weight:600">
+      <input type="checkbox" id="a-restar-iob" style="width:auto; min-height:auto; margin-right:.4rem">
+      Restar automaticamente la insulina que sigue actuando
+    </label>
+    <p class="pista">Viene desactivado a proposito. Si esta desactivado la aplicacion AVISA de que
+    queda insulina trabajando, pero no toca la dosis: decidirlo es cosa de tu medico.</p>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Tus insulinas</h2>
+    <p class="pista">Solo para que quede anotado y salga en el registro.</p>
+    <div class="rejilla-2">
+      <div>
+        <label for="a-rapida">Rapida</label>
+        <input type="text" id="a-rapida" placeholder="nombre">
+      </div>
+      <div>
+        <label for="a-lenta">Lenta</label>
+        <input type="text" id="a-lenta" placeholder="nombre">
+      </div>
+    </div>
+    <div class="rejilla-2" style="margin-top:.6rem">
+      <div>
+        <label for="a-dosis-lenta">Dosis de la lenta (U)</label>
+        <input type="number" id="a-dosis-lenta" inputmode="decimal" min="0" max="200" step="0.5">
+      </div>
+      <div>
+        <label for="a-hora-lenta">A que hora</label>
+        <input type="time" id="a-hora-lenta">
+      </div>
+    </div>
+  </div>
+
+  <button class="b-principal" id="b-guardar-ajustes" type="button">Guardar los ajustes</button>
+
+  <details>
+    <summary>Ayuda con IA (opcional, no recomendada)</summary>
+    <div class="tarjeta" style="margin-top:.6rem">
+      <div class="nota n-peligro">
+        <strong>Leelo antes de activar esto.</strong>
+        <p class="pista">Una pagina web no puede guardar una clave de API en secreto: quedaria
+        en el telefono y cualquiera que lo desbloquee podria leerla. Ademas el texto de la
+        comida saldria del telefono hacia el proveedor. La aplicacion funciona entera sin esto,
+        y la recomendacion es dejarlo apagado y añadir a mano los alimentos que falten.</p>
+      </div>
+      <p class="pista">Si se activa, la IA solo se usa para dos cosas: proponer un valor de
+      hidratos para un alimento que no este en la base (y que tu tienes que revisar y guardar),
+      y ayudar a leer una frase que el lector de casa no haya entendido. Nunca calcula la dosis
+      ni fija por si sola un valor que acabe en una jeringa.</p>
+
+      <label style="margin-top:.6rem; font-weight:600">
+        <input type="checkbox" id="ia-activo" style="width:auto; min-height:auto; margin-right:.4rem">
+        Activar la ayuda con IA
+      </label>
+      <div class="rejilla-2" style="margin-top:.6rem">
+        <div>
+          <label for="ia-proveedor">Proveedor</label>
+          <select id="ia-proveedor">
+            <option value="ninguno">ninguno</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="openai">OpenAI o compatible</option>
+          </select>
+        </div>
+        <div>
+          <label for="ia-modelo">Modelo</label>
+          <input type="text" id="ia-modelo" placeholder="claude-opus-5">
+        </div>
+      </div>
+      <label for="ia-clave" style="margin-top:.6rem">Clave de API</label>
+      <input type="text" id="ia-clave" placeholder="se guarda solo en este telefono" autocomplete="off">
+      <label for="ia-base" style="margin-top:.6rem">URL base (solo para endpoints compatibles)</label>
+      <input type="text" id="ia-base" placeholder="https://..." autocomplete="off">
+      <div class="acciones" style="margin-top:.75rem">
+        <button type="button" id="b-probar-ia">Probar la conexion</button>
+        <button type="button" id="b-guardar-ia" class="b-principal" style="flex:1 1 100%">Guardar la configuracion de IA</button>
+      </div>
+      <div id="estado-ia" style="margin-top:.6rem"></div>
+    </div>
+  </details>
+
+  <details>
+    <summary>Datos y privacidad</summary>
+    <div class="tarjeta" style="margin-top:.6rem">
+      <p class="pista">Todo (ajustes, registro, alimentos) se guarda unicamente en el
+      almacenamiento de este navegador. No hay servidor, ni cuenta, ni copia en la nube.
+      Nada se envia a ningun sitio salvo que actives la ayuda con IA.</p>
+      <div class="nota n-aviso oculto" id="aviso-sin-almacenamiento">
+        Este navegador no permite guardar datos (navegacion privada?). Podras calcular, pero
+        al cerrar se perdera todo.
+      </div>
+      <div class="acciones">
+        <button type="button" id="b-exportar-2">Descargar copia</button>
+        <button type="button" id="b-borrar-todo" class="b-peligro">Borrar todos mis datos</button>
+      </div>
+    </div>
+  </details>
+
+  <details>
+    <summary>Sobre esta aplicacion</summary>
+    <div class="tarjeta" style="margin-top:.6rem">
+      <p class="pista">
+        Version <span id="version-app">-</span> · base de alimentos <span id="version-db">-</span>
+      </p>
+      <p class="pista">Calcula el bolo de insulina rapida con las formulas habituales de la
+      terapia bolo-basal:</p>
+      <p class="pista"><strong>bolo de comida</strong> = hidratos ÷ ratio<br>
+      <strong>bolo de correccion</strong> = (glucemia − objetivo) ÷ FSI<br>
+      <strong>total</strong> = bolo de comida + bolo de correccion</p>
+      <p class="aviso-legal">Ayuda al calculo de uso personal. No es un producto sanitario ni
+      sustituye el criterio de un profesional. Los valores de hidratos son de tablas de
+      composicion de alimentos y la comida real varia. Ante cualquier duda, consulta con tu
+      equipo de endocrinologia.</p>
+    </div>
+  </details>
+</section>
+
+</main>
+
+<div class="mensaje-flotante" id="mensaje-flotante" role="status" aria-live="polite" hidden></div>
+
+<nav class="barra" aria-label="Secciones">
+  <button type="button" data-vista="calcular" aria-current="page">
+    <span class="icono" aria-hidden="true">&#128290;</span>Calcular</button>
+  <button type="button" data-vista="registro">
+    <span class="icono" aria-hidden="true">&#128203;</span>Registro</button>
+  <button type="button" data-vista="alimentos">
+    <span class="icono" aria-hidden="true">&#127859;</span>Alimentos</button>
+  <button type="button" data-vista="ajustes">
+    <span class="icono" aria-hidden="true">&#9881;</span>Ajustes</button>
+</nav>
+
+<!-- El orden importa: la base antes del indice, el indice antes del lector. -->
+<script src="data/alimentos.js"></script>
+<script src="js/bolus.js"></script>
+<script src="js/foods.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/store.js"></script>
+<script src="js/voice.js"></script>
+<script src="js/llm.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Herramientas de desarrollo y de pruebas. NO hacen falta para usar la
+# aplicacion: solo para trabajar en ella. Python 3.11 o superior.
+
+# Los tests ejecutan el JavaScript REAL de web/js/ dentro de V8, en vez de
+# reimplementar el calculo en Python. Es la unica forma de garantizar que lo
+# que se prueba es exactamente lo que corre en el telefono.
+py-mini-racer==0.6.0
+
+pytest==9.1.1
+
+# Solo para regenerar los iconos (tools/hacer_iconos.py).
+pillow==12.3.0

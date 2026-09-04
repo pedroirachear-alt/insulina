@@ -1,0 +1,8 @@
+# Todo el texto se normaliza a LF en el repositorio.
+# Importa: web/ se publica tal cual como sitio web, y los saltos de linea de
+# Windows no tienen nada que hacer en los archivos servidos.
+* text=auto eol=lf
+
+# Binarios: que git no los toque.
+*.png binary
+*.ico binary

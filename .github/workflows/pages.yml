@@ -1,0 +1,62 @@
+name: Publicar en GitHub Pages
+
+# Publica la carpeta `web/` en GitHub Pages en cada push a main.
+#
+# Por que una accion y no el despliegue directo desde una rama: GitHub Pages
+# solo sabe publicar la raiz del repositorio o `/docs`, y la aplicacion vive en
+# `web/` para no mezclarla con los tests, las herramientas y la documentacion.
+# La accion coge solo `web/` y la publica como si fuera la raiz.
+#
+# Antes de publicar se pasan los tests. Si estan en rojo, NO se publica: el
+# resultado de este calculo acaba en una jeringa.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un despliegue a la vez; no se cancela el que este en marcha.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  comprobar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Instalar las herramientas de prueba
+        run: pip install -r requirements-dev.txt
+
+      - name: Pasar los tests
+        run: python run_tests.py
+
+  publicar:
+    needs: comprobar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - name: Preparar solo la carpeta de la aplicacion
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+      - name: Desplegar
+        id: despliegue
+        uses: actions/deploy-pages@v4

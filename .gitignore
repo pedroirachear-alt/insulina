@@ -1,0 +1,23 @@
+# Entornos de Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Secretos: nunca en el repositorio
+.env
+*.key
+
+# Copias de seguridad exportadas por la aplicacion: son DATOS DE SALUD.
+# Se descargan a la carpeta de descargas del telefono, no aqui, pero si
+# alguna acaba en el proyecto no debe subirse nunca a GitHub.
+insulina-*.json
+copias/
+
+# Sistema y editores
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
