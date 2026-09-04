@@ -162,10 +162,21 @@ python -m venv .venv
 
 Y abrir <http://127.0.0.1:8770>.
 
-También se puede abrir `web/index.html` haciendo doble clic: todo está pensado
-para funcionar desde `file://` (por eso la base de alimentos es un `.js` y no un
-`.json`). Lo único que no funciona así es el service worker, que no hace falta
-en local.
+También se puede abrir `web/index.html` haciendo doble clic. Está pensado para
+que funcione desde `file://`: la base de alimentos es un `.js` cargado con
+`<script>` y no un `.json` con `fetch` (que CORS bloquea sobre `file://`), y en
+toda la ruta de arranque no hay ni una petición de red.
+
+Dos salvedades sobre `file://`, dichas con precisión:
+
+- El **service worker** no se registra (hay una comprobación de protocolo), y
+  no hace falta: ya está todo en local.
+- Algunos navegadores **restringen `localStorage`** en el origen `file://`. Si
+  ocurre, la aplicación calcula igual pero no recuerda nada al cerrar, y lo
+  avisa en pantalla. Para usarla de verdad, mejor servida por HTTP.
+
+O sea: `file://` sirve para echarle un ojo rápido; para usarla, GitHub Pages o
+el servidor local de arriba.
 
 ### Tests
 
