@@ -148,6 +148,18 @@ class MotorAlmacen(ContextoJS):
     def buscar(self, texto: str, limite: int = 5) -> list:
         return self.llamar("Alimentos.buscar", texto, limite)
 
+    def anotar_pendiente(self, texto, hc=None):
+        return self.llamar("Store.anotarPendiente", texto, hc)
+
+    def pendientes(self) -> list:
+        return self.llamar("Store.pendientes")
+
+    def borrar_pendiente(self, id_: str) -> int:
+        return self.llamar("Store.borrarPendiente", id_)
+
+    def pendientes_en_texto(self) -> str:
+        return self.ctx.eval("Store.pendientesEnTexto()")
+
     def guardar_comida(self, comida: dict) -> list:
         return self.llamar("Store.guardarComida", comida)
 

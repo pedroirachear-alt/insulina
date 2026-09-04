@@ -313,6 +313,47 @@ divergir.
 
 ---
 
+## D15. El usuario estima gramos de hidratos, no valores por 100 g
+
+**Decidido:** cuando falta un alimento, se le pide **los gramos de hidratos de
+su plato**, no los hidratos por 100 g. El cálculo sigue, y lo que faltaba queda
+en una lista de pendientes para añadirlo bien más adelante.
+
+**Descartado:** (a) que el usuario rellene el alimento completo (nombre,
+hidratos por 100 g, peso de la ración) en el momento; (b) que la comida se
+quede sin ese alimento; (c) preguntárselo a una IA.
+
+**Por qué.** Lo primero es pedirle un dato que no tiene: los hidratos por 100 g
+están en una etiqueta o en una tabla, no en la cabeza de nadie. Lo segundo
+produce insulina de menos. Lo tercero es D1 otra vez.
+
+Pero hay una cosa que **sí sabe hacer, y muy bien**: estimar cuántos gramos de
+hidratos lleva su plato. Lo lleva haciendo toda la vida; es literalmente la
+cuenta que esta aplicación viene a ahorrarle. Pedirle eso no es pedirle nada
+nuevo.
+
+Y ese número es además **el mejor dato disponible** sobre ese plato: mejor que
+una tabla genérica, porque es *su* ración de *su* receta. Por eso se guarda en
+el pendiente y se manda con la lista.
+
+**El ciclo completo:** no reconocido → se dice y no se cuenta → botón para
+ponerlo a mano → el cálculo sigue → queda apuntado con las veces, el valor y la
+frase original → «Mandar la lista» produce un texto pegable en un WhatsApp →
+se añade a `alimentos.js` → `git push` → el teléfono se actualiza → desaparece
+de pendientes.
+
+Dos detalles que hacen que la lista sirva de verdad un mes después:
+
+- **`veces`**: cuántas veces ha aparecido. Es lo que dice qué añadir primero.
+- **`contexto`**: la frase original. Sin ella, un pendiente puede ser una
+  palabra suelta («txangurro») que no le dice nada a quien la revise.
+
+Implicación de diseño en el motor: un item «directo» lleva `hc100: null` y
+`directo: true`, y `recalcularItem` no lo toca. El cuadro editable de su fila
+son gramos de **hidratos**, no de alimento.
+
+---
+
 ## D14. Qué NO hace la aplicación, a propósito
 
 - **No sugiere ni ajusta parámetros.** Ni siquiera con el registro entero
@@ -336,8 +377,9 @@ aplicación hace exactamente la cuenta que el usuario ya hace, y nada más.**
 
 Nada de esto es necesario para el uso diario:
 
-1. **Ampliar la base con la experiencia.** Lo que más mejora las dosis. Se hace
-   usándola y corrigiendo desde la pantalla de *Alimentos*.
+1. **Ampliar la base con la experiencia.** Lo que más mejora las dosis. La vía
+   está montada (D15): la lista de pendientes dice qué añadir y con qué valor
+   de partida. Toca revisarla cada mes o dos.
 2. **Un informe para la revisión médica.** Un PDF o una hoja con el registro
    del último mes para llevar al endocrino. Sería útil y es sencillo.
 3. **Gráfica de glucemias del registro.** Solo si el endocrino la pide: la

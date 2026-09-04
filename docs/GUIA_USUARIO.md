@@ -209,8 +209,8 @@ Más de 400 g en una comida. Es una errata: revisa la lista.
 
 ### «Has dicho una cantidad pero no se ha entendido de qué»
 
-Ha entendido «un plato de…» pero no de qué. **Eso no está contado.** Búscalo en
-la pantalla de Alimentos y añádelo.
+Ha entendido «un plato de…» pero no de qué. **Eso no está contado.** Usa el
+botón de poner los hidratos a mano; queda apuntado en la lista de pendientes.
 
 ---
 
@@ -229,24 +229,60 @@ la pantalla de Alimentos y añádelo.
 
 ---
 
-## Si falta un alimento, o un valor no te cuadra
+## Si la aplicación no conoce algo
 
-Es normal y tiene arreglo definitivo. Ve a **Alimentos**:
+Va a pasar: la base tiene 246 alimentos, y la cocina de casa tiene más. **No
+te bloquea, y no tienes que buscar ningún dato.**
+
+Cuando no reconozca algo te lo dice y te sale un botón: **«Poner a mano los
+hidratos de…»**. Ahí escribes **el número que calcularías de cabeza**, como has
+hecho toda la vida:
+
+```
+Qué es:   pastel de txangurro
+g de HC:  35
+```
+
+Y ya está: entra en la lista, se suma al total y el cálculo sigue. La fila
+queda marcada como **«a mano»** para que sepas que ese número lo pusiste tú.
+
+Ese mismo formulario está siempre disponible en la pantalla de Calcular, en
+**«La aplicación no lo conoce: poner los hidratos a mano»**.
+
+### Y se queda apuntado para arreglarlo de verdad
+
+Todo lo que la aplicación no reconoce se guarda en una lista: **Alimentos →
+«Pendientes de añadir a la base»**. Ahí aparece cada cosa con:
+
+- **las veces** que ha aparecido (lo que sale mucho es lo que urge añadir),
+- **los gramos** que pusiste a mano,
+- **la frase** con la que lo dijiste.
+
+Cuando tengas unas cuantas, pulsa **«Mandar la lista»**: se copia o se abre el
+compartir del móvil y se lo mandas a tu hijo por WhatsApp. Él las añade a la
+base con un valor bueno, y en la siguiente actualización la aplicación ya las
+conoce.
+
+**Mientras tanto sigues calculando igual**, poniendo el número a mano. No hay
+prisa ninguna.
+
+## Si un valor no te cuadra, o quieres añadir algo tú mismo
+
+En **Alimentos → «Añadir o corregir un alimento»**:
 
 1. **Búscalo primero**, puede estar con otro nombre.
-2. Si no está, en **«Añadir o corregir un alimento»** pon:
-   - el **nombre** con el que lo vas a llamar,
-   - los **hidratos por 100 g** (vienen en la etiqueta del producto, en
-     «hidratos de carbono»),
-   - lo que pesa **una ración** tuya en gramos.
+2. Pon el **nombre**, los **hidratos por 100 g** (vienen en la etiqueta del
+   producto, en «hidratos de carbono») y lo que pesa **una ración** tuya.
 3. **«Guardar el alimento»**.
 
-A partir de ese momento la aplicación lo reconoce por su nombre para siempre.
+A partir de ese momento la aplicación lo reconoce por su nombre para siempre, y
+si estaba en la lista de pendientes desaparece de ella.
 
 **Para corregir un valor que no te cuadra:** haz lo mismo con el nombre exacto
 que ya tiene. El tuyo manda sobre el de la base. Si por experiencia sabes que
 «un plato de arroz» en tu casa te sube más de lo que dice la aplicación, este
-es el sitio donde arreglarlo.
+es el sitio donde arreglarlo. Esto es lo que de verdad afina las dosis con el
+tiempo.
 
 ---
 

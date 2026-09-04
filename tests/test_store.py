@@ -283,6 +283,137 @@ def test_guardar_la_misma_comida_la_actualiza(almacen):
 
 
 # ---------------------------------------------------------------------------
+# Comidas no registradas (la lista de pendientes)
+# ---------------------------------------------------------------------------
+
+def test_lo_que_no_se_reconoce_queda_apuntado(almacen):
+    """El punto de todo esto: un alimento que falte no se pierde.
+
+    Sin esta lista, la unica opcion seria que el usuario supiera los hidratos
+    por 100 g de cada cosa, que es justo lo que no tiene por que saber.
+    """
+    almacen.anotar_pendiente("pastel de txangurro", 42)
+    p = almacen.pendientes()
+    assert len(p) == 1
+    assert p[0]["texto"] == "pastel de txangurro"
+    assert p[0]["veces"] == 1
+    assert p[0]["hc_estimado"] == 42
+    assert p[0]["primera_vez"] > 0
+
+
+def test_el_mismo_alimento_no_se_duplica_y_cuenta_las_veces(almacen):
+    """`veces` es lo que hace util la lista: dice que añadir primero."""
+    almacen.anotar_pendiente("marmitako", 30)
+    almacen.anotar_pendiente("marmitako", 35)
+    almacen.anotar_pendiente("marmitako", None)
+    p = almacen.pendientes()
+    assert len(p) == 1
+    assert p[0]["veces"] == 3
+
+
+@pytest.mark.parametrize(
+    "variante",
+    ["Pastel de Txangurro", "PASTEL DE TXANGURRO", "  pastel de txangurro  "],
+)
+def test_la_deteccion_de_repetidos_ignora_mayusculas_y_espacios(almacen, variante):
+    almacen.anotar_pendiente("pastel de txangurro", None)
+    almacen.anotar_pendiente(variante, None)
+    assert len(almacen.pendientes()) == 1
+
+
+def test_el_ultimo_valor_puesto_a_mano_gana(almacen):
+    """Cada vez que el usuario lo pone a mano afina su estimacion."""
+    almacen.anotar_pendiente("empanada", 40)
+    almacen.anotar_pendiente("empanada", 55)
+    assert almacen.pendientes()[0]["hc_estimado"] == 55
+
+
+def test_un_valor_nuevo_no_borra_el_anterior_si_viene_vacio(almacen):
+    almacen.anotar_pendiente("empanada", 40)
+    almacen.anotar_pendiente("empanada", None)
+    assert almacen.pendientes()[0]["hc_estimado"] == 40
+
+
+def test_se_ordenan_por_las_veces_que_han_aparecido(almacen):
+    almacen.anotar_pendiente("poco frecuente", None)
+    for _ in range(4):
+        almacen.anotar_pendiente("muy frecuente", None)
+    for _ in range(2):
+        almacen.anotar_pendiente("regular", None)
+    assert [p["texto"] for p in almacen.pendientes()] == [
+        "muy frecuente",
+        "regular",
+        "poco frecuente",
+    ]
+
+
+@pytest.mark.parametrize("basura", ["", "   ", None, "x" * 200])
+def test_no_se_apunta_basura(almacen, basura):
+    assert almacen.anotar_pendiente(basura, None) is None
+    assert almacen.pendientes() == []
+
+
+def test_borrar_un_pendiente(almacen):
+    p = almacen.anotar_pendiente("una cosa", None)
+    almacen.anotar_pendiente("otra cosa", None)
+    assert almacen.borrar_pendiente(p["id"]) == 1
+    assert [x["texto"] for x in almacen.pendientes()] == ["otra cosa"]
+
+
+def test_la_lista_en_texto_se_puede_mandar_por_un_mensaje(almacen):
+    """Tiene que salir algo legible y pegable en WhatsApp, sin formatos."""
+    almacen.anotar_pendiente("pastel de txangurro", 42)
+    almacen.anotar_pendiente("pastel de txangurro", 45)
+    almacen.anotar_pendiente("marmitako", None)
+    texto = almacen.pendientes_en_texto()
+    assert "pastel de txangurro" in texto
+    assert "2 veces" in texto
+    assert "45 g de hidratos" in texto
+    assert "marmitako" in texto
+    assert "1 vez" in texto
+
+
+def test_la_lista_vacia_lo_dice(almacen):
+    assert "No hay alimentos pendientes" in almacen.pendientes_en_texto()
+
+
+def test_los_pendientes_van_en_la_copia_de_seguridad(almacen):
+    """Es como llegan a quien va a actualizar la base."""
+    almacen.anotar_pendiente("pastel de txangurro", 42)
+    d = json.loads(almacen.exportar())
+    assert len(d["pendientes"]) == 1
+    assert d["pendientes"][0]["hc_estimado"] == 42
+
+
+def test_los_pendientes_se_recuperan_al_importar(almacen):
+    almacen.anotar_pendiente("pastel de txangurro", 42)
+    copia = almacen.exportar()
+
+    otro = MotorAlmacen()
+    assert otro.importar(copia, "reemplazar")["ok"] is True
+    assert [p["texto"] for p in otro.pendientes()] == ["pastel de txangurro"]
+
+
+def test_al_fusionar_copias_los_pendientes_suman_veces(almacen):
+    """Dos telefonos, o dos meses de uso: las veces se acumulan."""
+    almacen.anotar_pendiente("marmitako", None)
+    copia = almacen.exportar()
+
+    otro = MotorAlmacen()
+    otro.anotar_pendiente("marmitako", 30)
+    assert otro.importar(copia, "fusionar")["ok"] is True
+    p = otro.pendientes()
+    assert len(p) == 1
+    assert p[0]["veces"] == 2
+
+
+def test_borrar_todo_tambien_borra_los_pendientes(almacen):
+    almacen.anotar_pendiente("una cosa", None)
+    almacen.borrar_todo()
+    assert almacen.pendientes() == []
+
+
+# ---------------------------------------------------------------------------
 # Copias de seguridad
 # ---------------------------------------------------------------------------
 

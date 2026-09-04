@@ -111,6 +111,44 @@ Nunca se omiten hidratos en silencio. Hay tres canales de aviso:
 
 ---
 
+## 3 bis. El ciclo de las comidas no registradas
+
+La base nunca va a estar completa, así que el diseño no depende de que lo esté.
+
+```mermaid
+flowchart TD
+    A["La aplicación no reconoce algo"] --> B["Lo dice y NO lo cuenta"]
+    B --> C["Botón: poner los hidratos a mano"]
+    C --> D["El usuario escribe el número<br/>que calcularía de cabeza"]
+    D --> E["Item 'directo': hc_g ES el dato,<br/>no se deduce de gramos × hc100"]
+    E --> F["El cálculo sigue.<br/>NUNCA se queda bloqueado"]
+    D --> G["store.js: lista de pendientes<br/>texto + veces + hc puesto + frase original"]
+    G --> H["'Mandar la lista' →<br/>texto plano por WhatsApp"]
+    H --> I["Se añade a alimentos.js<br/>con un valor bueno"]
+    I --> J["git push → GitHub Pages →<br/>el teléfono se actualiza"]
+    J --> K["Desaparece de pendientes.<br/>Círculo cerrado"]
+
+    style B fill:#fdf3e2
+    style F fill:#e7f5ec
+    style G fill:#0b6b8f,color:#fff
+```
+
+**Por qué está montado así.** El usuario no tiene por qué saber los hidratos
+por 100 g de nada: es un dato de etiqueta. Lo que sí sabe estimar, porque lleva
+toda la vida haciéndolo, es cuántos gramos de hidratos lleva *su* plato. Pedirle
+lo primero le bloquearía; pedirle lo segundo es pedirle lo que ya hace.
+
+Un item `directo` lleva `hc100: null` y `directo: true`: `recalcularItem` no lo
+toca y el cuadro editable de su fila son gramos de hidratos, no gramos de
+alimento.
+
+El `veces` de cada pendiente es lo que hace útil la lista un mes después: dice
+qué añadir primero. Y el `contexto` —la frase original— evita que quien la
+revise se encuentre con una palabra suelta («txangurro») sin saber de qué plato
+venía.
+
+---
+
 ## 4. Cómo se calcula la dosis
 
 `bolus.js` es la única puerta al cálculo. Recibe `(entrada, ajustes)` y

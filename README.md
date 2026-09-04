@@ -283,6 +283,28 @@ Se amplía de dos maneras:
 - **Editando el archivo**, para que quede para todos. Después,
   `python tools/validar_alimentos.py` y `python run_tests.py`.
 
+### El ciclo de las comidas no registradas
+
+El usuario **no tiene por qué saber los hidratos por 100 g de nada**. Ese dato
+es de etiqueta o de tabla, no de cabeza. Lo que sí sabe estimar —porque lleva
+toda la vida haciéndolo— es cuántos gramos de hidratos lleva *su* plato. El
+ciclo está montado sobre eso:
+
+1. La aplicación no reconoce algo → **lo dice y no lo cuenta**.
+2. Sale un botón: **poner los hidratos a mano**. El usuario escribe el número
+   que calcularía de cabeza y el cálculo sigue. La fila queda marcada «a mano».
+3. Eso se apunta en **Alimentos → Pendientes de añadir a la base**, con las
+   veces que ha aparecido, el valor que se puso y **la frase original**.
+4. Con **«Mandar la lista»** sale un texto plano, pegable en un WhatsApp.
+5. Quien mantenga el repositorio lo añade a `alimentos.js` con un valor bueno,
+   `git push`, y el teléfono se actualiza solo.
+6. Cuando el alimento entra en la base (o se añade desde la propia pantalla),
+   **desaparece de pendientes**. El círculo se cierra.
+
+Lo importante del diseño: en el paso 2 **nunca se queda bloqueado**, y en el
+paso 3 **nada se pierde en silencio**. El `veces` de la lista es lo que dice
+qué añadir primero.
+
 ---
 
 ## La capa de IA (opcional, apagada, no recomendada)

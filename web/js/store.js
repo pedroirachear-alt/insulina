@@ -26,10 +26,12 @@
     registro: PREFIJO + 'registro',
     alimentos: PREFIJO + 'alimentos',
     comidas: PREFIJO + 'comidas',
+    pendientes: PREFIJO + 'pendientes',
     version: PREFIJO + 'version'
   };
-  var VERSION_DATOS = 1;
-  var MAX_REGISTRO = 2000;   // unos 2 años de 3 comidas al dia
+  var VERSION_DATOS = 2;
+  var MAX_REGISTRO = 2000;      // unos 2 años de 3 comidas al dia
+  var MAX_PENDIENTES = 300;
 
   /* ------------------------------------------------------- acceso protegido */
 
@@ -76,6 +78,14 @@
 
   function escribirJSON(clave, valor) {
     return escribirCrudo(clave, JSON.stringify(valor));
+  }
+
+  /** Numero finito o null. Local, para no depender del orden de carga. */
+  function num(v) {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'number') return isFinite(v) ? v : null;
+    var n = Number(String(v).trim().replace(',', '.'));
+    return isFinite(n) ? n : null;
   }
 
   /* ---------------------------------------------------------------- ajustes */
@@ -284,6 +294,109 @@
     return id;
   }
 
+  /* --------------------------------------------------- comidas no registradas */
+
+  /**
+   * LA LISTA DE PENDIENTES.
+   *
+   * Cuando la aplicacion no reconoce algo, no se pierde: se apunta aqui. La
+   * idea es que el usuario siga adelante --poniendo los hidratos a mano, como
+   * ha hecho toda la vida-- y que alguien con tiempo revise esta lista de vez
+   * en cuando y meta esos alimentos en la base con un valor bueno.
+   *
+   * Cada pendiente:
+   *   { id, texto, veces, primera_vez, ultima_vez, hc_estimado }
+   *
+   * `veces` es lo que hace util la lista: dice que alimentos hay que añadir
+   * primero. `hc_estimado` guarda el valor que el usuario puso a mano, que es
+   * la mejor pista que hay sobre cuanto lleva de verdad ese plato.
+   */
+  function pendientes() {
+    var p = leerJSON(CLAVES.pendientes, []);
+    if (!Array.isArray(p)) return [];
+    // De mas repetido a menos: es el orden en que conviene resolverlos.
+    return p.slice().sort(function (a, b) {
+      if (b.veces !== a.veces) return b.veces - a.veces;
+      return b.ultima_vez - a.ultima_vez;
+    });
+  }
+
+  function anotarPendiente(texto, hcEstimado, contexto) {
+    var limpio = String(texto === null || texto === undefined ? '' : texto).trim();
+    if (!limpio || limpio.length > 120) return null;
+
+    var clave = root.Alimentos ? root.Alimentos.normalizar(limpio) : limpio.toLowerCase();
+    if (!clave) return null;
+
+    var lista = leerJSON(CLAVES.pendientes, []);
+    if (!Array.isArray(lista)) lista = [];
+    var ahora = Date.now(), hc = num(hcEstimado), i;
+
+    for (i = 0; i < lista.length; i++) {
+      var k = root.Alimentos ? root.Alimentos.normalizar(lista[i].texto)
+                             : String(lista[i].texto).toLowerCase();
+      if (k !== clave) continue;
+      lista[i].veces = (lista[i].veces || 1) + 1;
+      lista[i].ultima_vez = ahora;
+      // El ultimo valor puesto a mano gana: es el mas informado.
+      if (hc !== null && hc >= 0) lista[i].hc_estimado = hc;
+      if (contexto && !lista[i].contexto) lista[i].contexto = String(contexto).slice(0, 160);
+      escribirJSON(CLAVES.pendientes, lista);
+      return lista[i];
+    }
+
+    var nueva = {
+      id: 'p' + ahora + '-' + Math.random().toString(36).slice(2, 7),
+      texto: limpio,
+      veces: 1,
+      primera_vez: ahora,
+      ultima_vez: ahora,
+      hc_estimado: (hc !== null && hc >= 0) ? hc : null,
+      // La frase de la que salio. Una palabra suelta ("txangurro") no dice
+      // nada a quien revise la lista un mes despues; la frase entera si.
+      contexto: contexto ? String(contexto).slice(0, 160) : null
+    };
+    lista.push(nueva);
+    if (lista.length > MAX_PENDIENTES) lista = lista.slice(lista.length - MAX_PENDIENTES);
+    escribirJSON(CLAVES.pendientes, lista);
+    return nueva;
+  }
+
+  function borrarPendiente(id) {
+    var lista = leerJSON(CLAVES.pendientes, []);
+    if (!Array.isArray(lista)) return 0;
+    var fuera = [];
+    for (var i = 0; i < lista.length; i++) if (lista[i].id !== id) fuera.push(lista[i]);
+    escribirJSON(CLAVES.pendientes, fuera);
+    return lista.length - fuera.length;
+  }
+
+  /**
+   * La lista en texto plano, para mandarla por WhatsApp o por correo.
+   * Se queda a proposito en algo que se pueda leer de un vistazo y pegar en
+   * un mensaje: no hace falta ningun formato para procesarla despues.
+   */
+  function pendientesEnTexto() {
+    var lista = pendientes();
+    if (!lista.length) return 'No hay alimentos pendientes.';
+    var lineas = ['Alimentos que la aplicacion no reconoce:', ''];
+    for (var i = 0; i < lista.length; i++) {
+      var p = lista[i];
+      var linea = '- ' + p.texto + ' (' + p.veces + (p.veces === 1 ? ' vez' : ' veces') + ')';
+      if (p.hc_estimado !== null && p.hc_estimado !== undefined) {
+        linea += ' -- puse ' + p.hc_estimado + ' g de hidratos';
+      }
+      lineas.push(linea);
+      if (p.contexto && p.contexto !== p.texto) {
+        lineas.push('    lo dije asi: "' + p.contexto + '"');
+      }
+    }
+    lineas.push('');
+    lineas.push('(de la calculadora de insulina, ' +
+                new Date().toLocaleDateString('es-ES') + ')');
+    return lineas.join('\n');
+  }
+
   /* ------------------------------------------------------ comidas guardadas */
 
   /** { id, nombre, items:[...], hc_g } — "el desayuno de siempre". */
@@ -320,7 +433,8 @@
       ajustes: ajustes(),
       registro: registro(),
       alimentos: alimentosPropios(),
-      comidas: comidas()
+      comidas: comidas(),
+      pendientes: pendientes()
     }, null, 2);
   }
 
@@ -344,6 +458,7 @@
       escribirJSON(CLAVES.registro, datos.registro || []);
       escribirJSON(CLAVES.alimentos, datos.alimentos || []);
       escribirJSON(CLAVES.comidas, datos.comidas || []);
+      escribirJSON(CLAVES.pendientes, datos.pendientes || []);
       nuevas = (datos.registro || []).length;
     } else {
       if (datos.ajustes) guardarAjustes(datos.ajustes);
@@ -361,6 +476,11 @@
       for (i = 0; i < entrantesAl.length; i++) guardarAlimentoPropio(entrantesAl[i]);
       var entrantesCo = datos.comidas || [];
       for (i = 0; i < entrantesCo.length; i++) guardarComida(entrantesCo[i]);
+      var entrantesPe = datos.pendientes || [];
+      for (i = 0; i < entrantesPe.length; i++) {
+        anotarPendiente(entrantesPe[i].texto, entrantesPe[i].hc_estimado,
+                        entrantesPe[i].contexto);
+      }
     }
 
     if (root.Alimentos) root.Alimentos.registrarPersonalizados(alimentosPropios());
@@ -400,6 +520,10 @@
     validarAlimento: validarAlimento,
     borrarAlimentoPropio: borrarAlimentoPropio,
     idParaNombre: idParaNombre,
+    pendientes: pendientes,
+    anotarPendiente: anotarPendiente,
+    borrarPendiente: borrarPendiente,
+    pendientesEnTexto: pendientesEnTexto,
     comidas: comidas,
     guardarComida: guardarComida,
     borrarComida: borrarComida,

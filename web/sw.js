@@ -15,7 +15,7 @@
  * tirar la cache vieja.
  * ------------------------------------------------------------------------- */
 
-var VERSION = 'insulina-v1.0.0';
+var VERSION = 'insulina-v1.1.0';
 
 var ARCHIVOS = [
   './',

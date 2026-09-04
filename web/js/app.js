@@ -10,7 +10,7 @@
 (function () {
   'use strict';
 
-  var VERSION_APP = '1.0.0';
+  var VERSION_APP = '1.1.0';
 
   var $ = function (id) { return document.getElementById(id); };
   var MOMENTOS = ['desayuno', 'comida', 'merienda', 'cena'];
@@ -72,13 +72,22 @@
     $('titulo-vista').textContent = TITULOS[vista] || '';
     window.scrollTo(0, 0);
     if (vista === 'registro') pintarRegistro();
-    if (vista === 'alimentos') { pintarPropios(); pintarComidas(); }
+    if (vista === 'alimentos') { pintarPendientes(); pintarPropios(); pintarComidas(); }
     if (vista === 'calcular') { comprobarConfiguracion(); pintarIOB(); }
   }
 
   /* ------------------------------------------------------ lista de alimentos */
 
+  /**
+   * Recalcula los hidratos de un item.
+   *
+   * Un item `directo` es el que el usuario ha puesto a mano porque la
+   * aplicacion no conocia el alimento: ahi `hc_g` ES el dato, no se deduce de
+   * gramos por `hc100`. Es el camino que permite no quedarse nunca bloqueado
+   * por un alimento que falte.
+   */
   function recalcularItem(it) {
+    if (it.directo) { it.gramos = null; it.cantidad = null; return; }
     it.hc_g = Math.round((Number(it.hc100) || 0) * it.gramos / 1000) / 10;
     it.cantidad = it.gramos;
   }
@@ -100,22 +109,41 @@
       if (it.confianza === 'media') marca = '<span class="marca-confianza c-media">revisar</span>';
       if (it.confianza === 'baja') marca = '<span class="marca-confianza c-baja">dudoso</span>';
 
-      li.innerHTML =
-        '<div class="cuerpo">' +
-          '<div class="nombre">' + escapar(it.nombre) + marca + '</div>' +
-          '<div class="detalle">' + escapar(it.detalle || '') +
-            ' · ' + escapar(it.hc100) + ' g HC por 100 g</div>' +
-        '</div>' +
-        '<input class="gramos" type="number" inputmode="numeric" min="0" max="5000" step="1" ' +
-          'value="' + it.gramos + '" aria-label="Gramos de ' + escapar(it.nombre) + '">' +
-        '<span class="hc"><span class="valor-hc">' + it.hc_g + '</span> g</span>' +
-        '<button class="quitar" type="button" aria-label="Quitar ' + escapar(it.nombre) + '">&times;</button>';
+      if (it.directo) {
+        // Los hidratos son el dato: el cuadro editable son gramos de HC.
+        li.innerHTML =
+          '<div class="cuerpo">' +
+            '<div class="nombre">' + escapar(it.nombre) +
+              '<span class="marca-confianza c-media">a mano</span></div>' +
+            '<div class="detalle">' + escapar(it.detalle || '') + '</div>' +
+          '</div>' +
+          '<input class="gramos" type="number" inputmode="numeric" min="0" max="400" step="1" ' +
+            'value="' + it.hc_g + '" aria-label="Gramos de hidratos de ' + escapar(it.nombre) + '">' +
+          '<span class="hc">g HC</span>' +
+          '<button class="quitar" type="button" aria-label="Quitar ' + escapar(it.nombre) + '">&times;</button>';
+      } else {
+        li.innerHTML =
+          '<div class="cuerpo">' +
+            '<div class="nombre">' + escapar(it.nombre) + marca + '</div>' +
+            '<div class="detalle">' + escapar(it.detalle || '') +
+              ' · ' + escapar(it.hc100) + ' g HC por 100 g</div>' +
+          '</div>' +
+          '<input class="gramos" type="number" inputmode="numeric" min="0" max="5000" step="1" ' +
+            'value="' + it.gramos + '" aria-label="Gramos de ' + escapar(it.nombre) + '">' +
+          '<span class="hc"><span class="valor-hc">' + it.hc_g + '</span> g</span>' +
+          '<button class="quitar" type="button" aria-label="Quitar ' + escapar(it.nombre) + '">&times;</button>';
+      }
 
       li.querySelector('.gramos').addEventListener('input', function (ev) {
-        var g = Bolus.num(ev.target.value);
-        it.gramos = (g === null || g < 0) ? 0 : g;
-        recalcularItem(it);
-        li.querySelector('.valor-hc').textContent = it.hc_g;
+        var v = Bolus.num(ev.target.value);
+        if (v === null || v < 0) v = 0;
+        if (it.directo) {
+          it.hc_g = Math.round(v * 10) / 10;
+        } else {
+          it.gramos = v;
+          recalcularItem(it);
+          li.querySelector('.valor-hc').textContent = it.hc_g;
+        }
         $('hc-total').textContent = totalHC();
         limpiarResultado();
       });
@@ -154,10 +182,36 @@
       var clase = (r.confianza === 'baja') ? 'n-aviso' : 'n-info';
       html += nota(clase, a);
     });
+
+    /* Lo que no se ha entendido se APUNTA. No se pierde: queda en la lista de
+     * pendientes con las veces que ha aparecido, para añadirlo a la base mas
+     * adelante. Y se ofrece ponerlo a mano ahora mismo, para que un alimento
+     * que falte no deje al usuario bloqueado. */
+    var sinResolver = (r.no_reconocido || []).concat(r.sin_alimento || []);
+    for (var n = 0; n < sinResolver.length; n++) {
+      Store.anotarPendiente(sinResolver[n], null, texto);
+    }
+    if (sinResolver.length) {
+      pintarPendientes();
+      html += '<button type="button" class="b-pequeno" id="b-mano-rapido">' +
+              'Poner a mano los hidratos de "' + escapar(sinResolver[0]) + '"</button>';
+    }
+
     if (!r.items.length && LLM.disponible()) {
       html += '<button type="button" class="b-pequeno" id="b-leer-ia">Probar a leerlo con la IA</button>';
     }
     $('avisos-lectura').innerHTML = html;
+
+    var bMano = $('b-mano-rapido');
+    if (bMano) {
+      bMano.addEventListener('click', function () {
+        $('detalle-a-mano').open = true;
+        $('mano-nombre').value = sinResolver[0];
+        $('mano-hc').value = '';
+        $('mano-hc').focus();
+        $('detalle-a-mano').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
 
     var bIA = $('b-leer-ia');
     if (bIA) bIA.addEventListener('click', function () { leerConIA(texto); });
@@ -520,7 +574,17 @@
     if (!r.ok) { mensaje(r.motivo); return; }
     $('nuevo-nombre').value = ''; $('nuevo-hc100').value = ''; $('nuevo-racion').value = '';
     $('sugerencia-ia').classList.add('oculto');
+    /* Si estaba en la lista de pendientes, ya no lo esta: acaba de entrar en
+     * la base. Es lo que cierra el circulo. */
+    var pend = Store.pendientes();
+    for (var i = 0; i < pend.length; i++) {
+      if (Alimentos.normalizar(pend[i].texto) === Alimentos.normalizar(nombre)) {
+        Store.borrarPendiente(pend[i].id);
+      }
+    }
+
     mensaje('Guardado. Ya se puede usar por su nombre.');
+    pintarPendientes();
     pintarPropios();
     pintarBusqueda();
   }
@@ -578,6 +642,129 @@
       caja.className = 'nota n-peligro';
       caja.textContent = 'No se ha podido preguntar: ' + e.message;
     });
+  }
+
+  /* ------------------------------------------------- hidratos a mano ------ */
+
+  /**
+   * Añade a la comida unos hidratos puestos a mano.
+   *
+   * Es la valvula de escape del sistema: si falta un alimento, el usuario pone
+   * el numero que calcularia de cabeza --que es lo que ha hecho toda la vida--
+   * y sigue adelante. Ademas queda apuntado como pendiente CON ese valor, que
+   * es la mejor pista sobre cuanto lleva de verdad ese plato.
+   */
+  function anadirAMano() {
+    var nombre = $('mano-nombre').value.trim();
+    var hc = numeroDe($('mano-hc'));
+    if (!nombre) { mensaje('Pon que es, para que quede apuntado.'); return; }
+    if (hc === null || hc < 0 || hc > 400) {
+      mensaje('Pon los gramos de hidratos, entre 0 y 400.');
+      return;
+    }
+
+    items.push({
+      id: null, nombre: nombre, grupo: 'a mano', hc100: null,
+      directo: true, gramos: null, cantidad: null, unidad: null,
+      detalle: 'hidratos puestos a mano', hc_g: Math.round(hc * 10) / 10,
+      confianza: 'alta', puntuacion: 1, texto: nombre
+    });
+    Store.anotarPendiente(nombre, hc, $('texto-comida').value.trim() || null);
+
+    $('mano-nombre').value = '';
+    $('mano-hc').value = '';
+    pintarItems();
+    limpiarResultado();
+    pintarPendientes();
+    mensaje(nombre + ': ' + hc + ' g HC. Apuntado para añadirlo a la base.');
+  }
+
+  /* --------------------------------------------- pendientes de la base --- */
+
+  function pintarPendientes() {
+    var lista = Store.pendientes();
+    $('tarjeta-pendientes').classList.toggle('oculto', !lista.length);
+    if (!lista.length) { $('lista-pendientes').innerHTML = ''; return; }
+
+    var html = '';
+    lista.forEach(function (pe) {
+      // Ojo: `detalle` se inserta como HTML (lleva un <br>), asi que cada
+      // trozo que venga del usuario se escapa aqui, uno a uno.
+      var detalle = pe.veces + (pe.veces === 1 ? ' vez' : ' veces');
+      if (pe.hc_estimado !== null && pe.hc_estimado !== undefined) {
+        detalle += ' · se pusieron ' + pe.hc_estimado + ' g HC';
+      }
+      if (pe.contexto && pe.contexto !== pe.texto) {
+        detalle += '<br>de: "' + escapar(pe.contexto) + '"';
+      }
+      html += '<li><div class="cuerpo">' +
+                '<div class="nombre">' + escapar(pe.texto) + '</div>' +
+                '<div class="detalle">' + detalle + '</div>' +
+              '</div>' +
+              '<button class="b-pequeno" type="button" data-resolver="' + escapar(pe.id) +
+                '">Añadirlo</button>' +
+              '<button class="quitar" type="button" data-borrar-pe="' + escapar(pe.id) +
+                '" aria-label="Quitar de la lista">&times;</button></li>';
+    });
+    $('lista-pendientes').innerHTML = html;
+
+    var resolver = $('lista-pendientes').querySelectorAll('[data-resolver]');
+    for (var i = 0; i < resolver.length; i++) {
+      resolver[i].addEventListener('click', function (ev) {
+        var id = ev.currentTarget.getAttribute('data-resolver');
+        var lista2 = Store.pendientes(), pe = null;
+        for (var j = 0; j < lista2.length; j++) if (lista2[j].id === id) pe = lista2[j];
+        if (!pe) return;
+        // Se rellena el formulario de abajo. El valor por 100 g hay que
+        // ponerlo a mano: es justamente el dato que la aplicacion no tiene.
+        $('nuevo-nombre').value = pe.texto;
+        $('nuevo-hc100').value = '';
+        $('nuevo-racion').value = '';
+        $('nuevo-nombre').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        $('nuevo-hc100').focus();
+        mensaje(pe.hc_estimado !== null && pe.hc_estimado !== undefined
+          ? 'Se pusieron ' + pe.hc_estimado + ' g HC por racion. Para el valor por 100 g, mira la etiqueta.'
+          : 'Mira la etiqueta del producto para los hidratos por 100 g.');
+      });
+    }
+
+    var borrar = $('lista-pendientes').querySelectorAll('[data-borrar-pe]');
+    for (var k = 0; k < borrar.length; k++) {
+      borrar[k].addEventListener('click', function (ev) {
+        Store.borrarPendiente(ev.currentTarget.getAttribute('data-borrar-pe'));
+        pintarPendientes();
+      });
+    }
+  }
+
+  /**
+   * Manda la lista de pendientes. Tres caminos, del mejor al que siempre
+   * funciona: el compartir del propio movil, el portapapeles, y dejar el texto
+   * a la vista para copiarlo a mano.
+   */
+  function compartirPendientes() {
+    var texto = Store.pendientesEnTexto();
+    var caja = $('texto-pendientes');
+
+    function aLaVista(aviso) {
+      caja.value = texto;
+      caja.classList.remove('oculto');
+      caja.select();
+      mensaje(aviso);
+    }
+
+    if (navigator.share) {
+      navigator.share({ title: 'Alimentos pendientes', text: texto })
+        .catch(function () { aLaVista('Copia el texto y mandalo.'); });
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(texto).then(function () {
+        mensaje('Lista copiada. Pegala en un mensaje.');
+      }).catch(function () { aLaVista('Copia el texto y mandalo.'); });
+      return;
+    }
+    aLaVista('Copia el texto y mandalo.');
   }
 
   /* ------------------------------------------------------ comidas guardadas */
@@ -787,7 +974,10 @@
       ) ? 'fusionar' : 'reemplazar';
       var r = Store.importar(String(lector.result), modo);
       mensaje(r.ok ? (r.mensaje + ' ' + (r.importadas || 0) + ' anotaciones.') : r.mensaje);
-      if (r.ok) { cargarAjustes(); pintarRegistro(); pintarPropios(); pintarChipsComidas(); }
+      if (r.ok) {
+        cargarAjustes(); pintarRegistro(); pintarPropios();
+        pintarChipsComidas(); pintarPendientes();
+      }
     };
     lector.onerror = function () { mensaje('No se ha podido leer el archivo.'); };
     lector.readAsText(archivo);
@@ -828,6 +1018,20 @@
     $('archivo-importar').addEventListener('change', function (ev) {
       if (ev.target.files && ev.target.files[0]) importar(ev.target.files[0]);
       ev.target.value = '';
+    });
+
+    $('b-a-mano').addEventListener('click', anadirAMano);
+    $('mano-hc').addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') anadirAMano();
+    });
+    $('b-compartir-pendientes').addEventListener('click', compartirPendientes);
+    $('b-vaciar-pendientes').addEventListener('click', function () {
+      if (!window.confirm('Se borra la lista de alimentos pendientes. Hazlo solo si ya se han añadido a la base. Seguro?')) return;
+      var lista = Store.pendientes();
+      for (var i = 0; i < lista.length; i++) Store.borrarPendiente(lista[i].id);
+      pintarPendientes();
+      $('texto-pendientes').classList.add('oculto');
+      mensaje('Lista vaciada.');
     });
 
     $('buscar-alimento').addEventListener('input', pintarBusqueda);
@@ -880,7 +1084,8 @@
       Store.borrarTodo();
       items = [];
       cargarAjustes(); pintarItems(); pintarRegistro(); pintarPropios();
-      pintarComidas(); pintarChipsComidas(); limpiarResultado(); comprobarConfiguracion();
+      pintarComidas(); pintarChipsComidas(); pintarPendientes();
+      limpiarResultado(); comprobarConfiguracion();
       mensaje('Borrado.');
     });
 
@@ -909,6 +1114,7 @@
     cargarAjustes();
     pintarItems();
     pintarChipsComidas();
+    pintarPendientes();
     pintarIOB();
     pintarEstadoRed();
     comprobarConfiguracion();
